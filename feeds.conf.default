@@ -6,6 +6,8 @@ src-git telephony https://github.com/openwrt/telephony.git;openwrt-24.10
 src-git store https://github.com/linkease/istore.git;main
 # argon, etc.
 src-git third https://github.com/jjm2473/openwrt-third.git;main
+# openclash
+src-git openclash https://github.com/vernesong/OpenClash.git;master
 # nas-packages-luci
 src-git linkease_nas https://github.com/linkease/nas-packages.git;master
 src-git linkease_nas_luci https://github.com/linkease/nas-packages-luci.git;main

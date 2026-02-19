@@ -27,6 +27,7 @@
 - 密  码: `password`
 - 如果设备只有一个网口，则此网口就是 `LAN` ；如果设备有两个网口，则一个是 `WAN`，一个是`LAN`。
 - 关于管理 IP：`.config` 中的 `CONFIG_TARGET_PREINIT_IP`（本仓库已改为 `192.168.101.210`）只影响早期启动/救援阶段的临时地址，正式启动后仍使用 OpenWrt 默认的 LAN 地址（通常是 `192.168.1.1`，部分自定义基线可能是 `192.168.100.1`）。若希望开机后的管理地址也沿用 `PREINIT_IP`，需在对应设备的 `.config` 里启用 `CONFIG_TARGET_DEFAULT_LAN_IP_FROM_PREINIT=y` 并保持同一 IP。
+- 关于 OpenClash：已在 `feeds.conf.default` 加入 OpenClash 源；若在 `.config` 里启用 `CONFIG_PACKAGE_luci-app-openclash=y`，请确保编译前执行 `./scripts/feeds update -a && ./scripts/feeds install luci-app-openclash` 以拉取并安装依赖，否则固件里不会生成该包。
 
 ## ✨ 新特性：Kmods 软件源
 
