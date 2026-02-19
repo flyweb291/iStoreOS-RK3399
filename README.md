@@ -26,6 +26,8 @@
 - 用户名: `root`
 - 密  码: `password`
 - 如果设备只有一个网口，则此网口就是 `LAN` ；如果设备有两个网口，则一个是 `WAN`，一个是`LAN`。
+- 关于管理 IP：`.config` 中已将 `CONFIG_TARGET_PREINIT_IP` 设为 `192.168.101.210`，并启用了 `CONFIG_TARGET_DEFAULT_LAN_IP_FROM_PREINIT=y`，正式启动后的 LAN 管理地址也将统一为 `192.168.101.210`。
+- 关于 OpenClash：已在 `feeds.conf.default` 加入 OpenClash 源；若在 `.config` 里启用 `CONFIG_PACKAGE_luci-app-openclash=y`，请确保编译前执行 `./scripts/feeds update -a && ./scripts/feeds install luci-app-openclash` 以拉取并安装依赖，否则固件里不会生成该包。
 
 ## ✨ 新特性：Kmods 软件源
 
