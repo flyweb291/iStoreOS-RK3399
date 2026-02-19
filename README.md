@@ -27,6 +27,35 @@
 - 密  码: `password`
 - 如果设备只有一个网口，则此网口就是 `LAN` ；如果设备有两个网口，则一个是 `WAN`，一个是`LAN`。
 
+## ✨ 新特性：Kmods 软件源
+
+从现在开始，每次编译固件时会**自动生成独立的 kmods 软件源归档**，让您可以部署自己的内核模块软件仓库！
+
+### 主要特点
+- 🚀 **零额外编译时间** - 利用固件编译过程，无需额外步骤
+- 📦 **标准 OpenWrt 格式** - 完全兼容 opkg 包管理器
+- 🔄 **版本一致性** - 内核模块与固件内核完全匹配
+- 🌐 **即插即用** - 解压后直接可作为 HTTP 软件源使用
+
+### 快速开始
+1. 从 [Releases](../../releases) 下载 `kmods-repository-{设备名}-aarch64_cortex-a53.tar.gz`
+2. 使用 Docker 一键部署：
+   ```bash
+   tar -xzf kmods-repository-*.tar.gz
+   docker run -d -p 8080:80 -v $(pwd)/kmods-repository:/usr/share/nginx/html:ro nginx:alpine
+   ```
+3. 在路由器上配置：
+   ```bash
+   echo "src/gz custom_kmods http://YOUR_SERVER:8080/packages/aarch64_cortex-a53" >> /etc/opkg/customfeeds.conf
+   opkg update
+   opkg install kmod-usb-storage  # 示例：安装 USB 存储模块
+   ```
+
+### 📚 详细文档
+- 📖 [完整使用指南](KMODS_REPOSITORY_GUIDE.md) - 部署方法、应用场景、故障排查
+- 🚀 [实施说明](IMPLEMENTATION_SUMMARY_CN.md) - 技术方案和功能说明
+- 📋 [快速参考](QUICK_REFERENCE.md) - 常用命令速查
+
 
 
 ## 鸣谢

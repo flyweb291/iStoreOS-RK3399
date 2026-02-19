@@ -156,6 +156,125 @@ jobs:
         echo "FILE_DATE=_$(date +"%Y%m%d")" >> $GITHUB_ENV
         echo "status=success" >> ${GITHUB_OUTPUT}
 
+    - name: 生成 kmods 软件源
+      id: kmods
+      if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
+      run: |
+        cd openwrt/
+        echo "====== 开始生成 kmods 软件源 ======"
+        
+        # 创建 kmods 仓库目录结构
+        KMODS_REPO_DIR="kmods-repository"
+        ARCH_DIR="${KMODS_REPO_DIR}/packages/${{ matrix.ARCHITECTURE }}"
+        mkdir -p "${ARCH_DIR}"
+        
+        # 收集所有 kmod 包
+        KMOD_COUNT=0
+        if ls bin/targets/*/*/packages/kmod-*.ipk >/dev/null 2>&1; then
+          echo "📦 收集 kmod 包..."
+          cp -v bin/targets/*/*/packages/kmod-*.ipk "${ARCH_DIR}/"
+          KMOD_COUNT=$(ls -1 "${ARCH_DIR}"/kmod-*.ipk 2>/dev/null | wc -l)
+          echo "✅ 已收集 ${KMOD_COUNT} 个 kmod 包"
+        else
+          echo "⚠️  未找到 kmod 包"
+        fi
+        
+        # 收集其他内核相关包（可选）
+        if ls bin/targets/*/*/packages/*.ipk >/dev/null 2>&1; then
+          echo "📦 收集其他包..."
+          cp -v bin/targets/*/*/packages/*.ipk "${ARCH_DIR}/" 2>/dev/null || true
+        fi
+        
+        # 生成 Packages 索引文件
+        cd "${ARCH_DIR}"
+        if [ ${KMOD_COUNT} -gt 0 ]; then
+          echo "🔨 生成软件源索引..."
+          
+          # 使用 opkg-make-index.sh 生成索引（如果存在）
+          if command -v opkg-make-index.sh >/dev/null 2>&1; then
+            opkg-make-index.sh . > Packages
+          else
+            # 手动生成简单的 Packages 文件
+            for ipk in *.ipk; do
+              echo "Package: $(echo $ipk | sed 's/_.*//g')"
+              echo "Version: $(echo $ipk | sed 's/.*_\(.*\)_.*\.ipk/\1/')"
+              echo "Architecture: ${{ matrix.ARCHITECTURE }}"
+              echo "Filename: $ipk"
+              echo "Size: $(stat -c%s $ipk)"
+              echo "SHA256sum: $(sha256sum $ipk | awk '{print $1}')"
+              echo ""
+            done > Packages
+          fi
+          
+          # 压缩索引文件
+          gzip -k -f Packages
+          
+          echo "✅ 生成索引文件: Packages 和 Packages.gz"
+          echo "📊 包总数: $(grep -c "^Package:" Packages)"
+        fi
+        
+        cd /mnt/workdir/openwrt
+        
+        # 创建 README 说明文件
+        cat > "${KMODS_REPO_DIR}/README.md" << 'EOF'
+        # iStoreOS RK3399 Kmods 软件源
+        
+        ## 使用方法
+        
+        ### 1. 部署软件源
+        ```bash
+        # 解压到 Web 服务器目录
+        tar -xzf kmods-repository.tar.gz -C /var/www/html/
+        ```
+        
+        ### 2. 在路由器上配置软件源
+        ```bash
+        # 编辑 /etc/opkg/customfeeds.conf
+        echo "src/gz custom_kmods http://YOUR_SERVER_IP/kmods-repository/packages/${{ matrix.ARCHITECTURE }}" >> /etc/opkg/customfeeds.conf
+        
+        # 更新软件源
+        opkg update
+        
+        # 安装 kmod 包
+        opkg install kmod-usb-storage
+        ```
+        
+        ### 3. 使用 nginx 快速部署
+        ```bash
+        # 使用 Docker 快速部署
+        docker run -d -p 8080:80 -v $(pwd)/kmods-repository:/usr/share/nginx/html:ro nginx:alpine
+        ```
+        
+        ## 包含内容
+        - 所有编译的内核模块 (kmod-*.ipk)
+        - 其他相关软件包
+        - 软件源索引 (Packages.gz)
+        
+        ## 架构信息
+        - **架构**: ${{ matrix.ARCHITECTURE }}
+        - **平台**: rockchip/armv8 (RK3399)
+        - **分支**: ${{ matrix.REPO_BRANCH }}
+        - **编译日期**: $(date +"%Y-%m-%d")
+        
+        ## 注意事项
+        - 确保路由器内核版本与此软件源匹配
+        - 建议使用 HTTPS 部署生产环境
+        - 定期更新软件源以获取最新的包
+        EOF
+        
+        # 打包 kmods 仓库
+        echo "📦 打包 kmods 软件源..."
+        tar -czf kmods-repository-${{ inputs.board }}-${{ matrix.ARCHITECTURE }}.tar.gz "${KMODS_REPO_DIR}/"
+        
+        # 生成校验和
+        sha256sum kmods-repository-${{ inputs.board }}-${{ matrix.ARCHITECTURE }}.tar.gz > kmods-repository-${{ inputs.board }}-${{ matrix.ARCHITECTURE }}.tar.gz.sha256
+        
+        echo "✅ kmods 软件源生成完成！"
+        ls -lh kmods-repository*.tar.gz*
+        
+        echo "KMODS_ARCHIVE=kmods-repository-${{ inputs.board }}-${{ matrix.ARCHITECTURE }}.tar.gz" >> $GITHUB_ENV
+        echo "status=success" >> ${GITHUB_OUTPUT}
+
     - name: 清理并复制固件到对应目录
       id: clean
       if: ${{ steps.compile.outputs.status }} == 'success' && !cancelled()
@@ -165,6 +284,12 @@ jobs:
         [[ -d "output" ]] || mkdir output
         if ls bin/targets/*/*/*.img.gz >/dev/null 2>&1; then
           cp -f bin/targets/*/*/*.img.gz output/
+        fi
+        
+        # 复制 kmods 软件源归档
+        if [ -f kmods-repository-*.tar.gz ]; then
+          echo "📦 复制 kmods 软件源归档..."
+          cp -f kmods-repository-*.tar.gz* output/
         fi
 
         rm -rf $(ls . | grep -v "^output$" | xargs) 2>/dev/null
@@ -211,6 +336,23 @@ jobs:
           - 👤 用户名: root
           - 🔒 密码: password
           - 📒 说明: 如果设备只有一个网口，则此网口就是 `LAN` ；如果设备有两个网口，则一个是 `WAN`，一个是`LAN`，需要接入主路由器后进后台查找对应IP地址再访问。
+          
+          ### 📦 Kmods 软件源 (新功能)
+          - 本次构建包含独立的 **kmods 软件源归档**
+          - 文件名: `kmods-repository-${{ inputs.board }}-${{ matrix.ARCHITECTURE }}.tar.gz`
+          - 包含所有编译的内核模块 (kmod-*.ipk)
+          - 可直接部署为自定义软件源
+          - 详细使用说明请查看归档内的 README.md
+          
+          #### 快速使用
+          ```bash
+          # 1. 下载并解压 kmods 归档
+          # 2. 部署到 Web 服务器
+          # 3. 在路由器上添加软件源配置
+          echo "src/gz custom_kmods http://YOUR_SERVER/kmods-repository/packages/${{ matrix.ARCHITECTURE }}" >> /etc/opkg/customfeeds.conf
+          opkg update
+          ```
+          
           ### iStoreOS Image Verification  
           - sha256sum   
         draft: false  
