@@ -137,6 +137,20 @@ jobs:
         chmod +x ${DIY_P2_SH}
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
+        # rust 包近期在 GitHub Actions CI 上会触发 host-compile 失败，禁用 v2raya 避免拉起 rust 构建
+        ./scripts/config --disable PACKAGE_v2raya
+        # 预装 OpenClash，并显式启用常用依赖
+        ./scripts/config \
+          --enable PACKAGE_luci-app-openclash \
+          --enable PACKAGE_ca-bundle \
+          --enable PACKAGE_curl \
+          --enable PACKAGE_dnsmasq-full \
+          --enable PACKAGE_ipset \
+          --enable PACKAGE_iptables-nft \
+          --enable PACKAGE_kmod-inet-diag \
+          --enable PACKAGE_kmod-tun \
+          --enable PACKAGE_coreutils-nohup \
+          --enable PACKAGE_bash
 
     - name: 下载软件包
       id: package
